@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./code
+      dockerfile: Dockerfile.dev
+    container_name: psy_mag_backend
+    environment:
+      RAILS_ENV: development
+      SECRET_KEY_BASE: development_secret_key_base_for_docker_compose
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./code:/rails
+    command: >
+      sh -c "
+        echo '🚀 Starting PsyMag API...' &&
+        bundle install &&
+        ./bin/rails db:create || echo 'Database exists' &&
+        ./bin/rails db:migrate &&
+        ./bin/rails db:seed &&
+        rm -rf /rails/tmp/pids &&
+        mkdir -p /rails/tmp/pids &&
+        echo '✅ Ready! Backend API running on http://localhost:8000' &&
+        exec ./bin/rails server -b 0.0.0.0 -p 8000 --pid=/rails/tmp/pids/server.pid
+      "
+    networks:
+      - tamly-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: psy_mag_frontend
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    stdin_open: true
+    tty: true
+    depends_on:
+      - backend
+    command: >
+      sh -c "
+        echo '🎨 Starting BaoMoi.com Frontend...' &&
+        npm install &&
+        echo '✅ Ready! Frontend running on http://localhost:3000' &&
+        exec npm start
+      "
+    networks:
+      - tamly-network
+
+volumes:
+  bundle_cache:
+  sqlite_data:
+
+networks:
+  tamly-network:
+    driver: bridge 
